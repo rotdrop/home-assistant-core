@@ -40,6 +40,8 @@ from .template_entity import (
     rewrite_common_legacy_to_modern_conf,
 )
 
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
+
 _VALID_STATES = [STATE_ON, STATE_OFF, "true", "false"]
 
 SWITCH_SCHEMA = vol.All(
@@ -52,6 +54,9 @@ SWITCH_SCHEMA = vol.All(
             vol.Optional(ATTR_FRIENDLY_NAME): cv.string,
             vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ).extend(TEMPLATE_ENTITY_COMMON_SCHEMA_LEGACY.schema),
 )
@@ -78,6 +83,7 @@ async def _async_create_entities(hass, config):
     for object_id, entity_config in config[CONF_SWITCHES].items():
         entity_config = rewrite_common_legacy_to_modern_conf(hass, entity_config)
         unique_id = entity_config.get(CONF_UNIQUE_ID)
+        attribute_templates = entity_config.get(CONF_ATTRIBUTE_TEMPLATES)
 
         switches.append(
             SwitchTemplate(
@@ -85,6 +91,7 @@ async def _async_create_entities(hass, config):
                 object_id,
                 entity_config,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -135,6 +142,7 @@ class SwitchTemplate(TemplateEntity, SwitchEntity, RestoreEntity):
         object_id,
         config,
         unique_id,
+        attribute_templates,
     ):
         """Initialize the Template switch."""
         super().__init__(
