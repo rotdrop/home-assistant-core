@@ -28,6 +28,8 @@ from homeassistant.helpers.script import Script
 from .const import CONF_AVAILABILITY_TEMPLATE
 from .template_entity import TemplateEntity
 
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
+
 _VALID_STATES = [STATE_ON, STATE_OFF, "true", "false"]
 
 ON_ACTION = "turn_on"
@@ -46,6 +48,9 @@ SWITCH_SCHEMA = vol.All(
             vol.Optional(ATTR_FRIENDLY_NAME): cv.string,
             vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ),
 )
@@ -68,6 +73,7 @@ async def _async_create_entities(hass, config):
         on_action = device_config[ON_ACTION]
         off_action = device_config[OFF_ACTION]
         unique_id = device_config.get(CONF_UNIQUE_ID)
+        attribute_templates = device_config[CONF_ATTRIBUTE_TEMPLATES]
 
         switches.append(
             SwitchTemplate(
@@ -81,6 +87,7 @@ async def _async_create_entities(hass, config):
                 on_action,
                 off_action,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -107,12 +114,14 @@ class SwitchTemplate(TemplateEntity, SwitchEntity, RestoreEntity):
         on_action,
         off_action,
         unique_id,
+        attribute_templates,
     ):
         """Initialize the Template switch."""
         super().__init__(
             availability_template=availability_template,
             icon_template=icon_template,
             entity_picture_template=entity_picture_template,
+            attribute_templates=attribute_templates,
         )
         self.entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, device_id, hass=hass
