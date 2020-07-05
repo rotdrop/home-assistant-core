@@ -50,6 +50,8 @@ from .template_entity import (
 )
 from .trigger_entity import TriggerEntity
 
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
+
 _VALID_STATES = [STATE_ON, STATE_OFF, "true", "false"]
 
 LEGACY_FIELDS = TEMPLATE_ENTITY_LEGACY_FIELDS | {
@@ -77,6 +79,9 @@ LEGACY_SWITCH_SCHEMA = vol.All(
             vol.Optional(ATTR_FRIENDLY_NAME): cv.string,
             vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ).extend(TEMPLATE_ENTITY_COMMON_SCHEMA_LEGACY.schema),
 )
@@ -143,11 +148,14 @@ def _async_create_template_tracking_entities(
         if unique_id and unique_id_prefix:
             unique_id = f"{unique_id_prefix}-{unique_id}"
 
+        attribute_templates = entity_conf.get(CONF_ATTRIBUTE_TEMPLATES)
+
         switches.append(
             SwitchTemplate(
                 hass,
                 entity_conf,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -218,6 +226,7 @@ class SwitchTemplate(TemplateEntity, SwitchEntity, RestoreEntity):
         hass: HomeAssistant,
         config: ConfigType,
         unique_id: str | None,
+        attribute_templates,
     ) -> None:
         """Initialize the Template switch."""
         super().__init__(hass, config=config, unique_id=unique_id)
