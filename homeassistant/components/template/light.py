@@ -49,6 +49,7 @@ CONF_COLOR_TEMPLATE = "color_template"
 CONF_COLOR_ACTION = "set_color"
 CONF_WHITE_VALUE_TEMPLATE = "white_value_template"
 CONF_WHITE_VALUE_ACTION = "set_white_value"
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
 
 LIGHT_SCHEMA = vol.All(
     cv.deprecated(CONF_ENTITY_ID),
@@ -71,6 +72,9 @@ LIGHT_SCHEMA = vol.All(
             vol.Optional(CONF_WHITE_VALUE_TEMPLATE): cv.template,
             vol.Optional(CONF_WHITE_VALUE_ACTION): cv.SCRIPT_SCHEMA,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ),
 )
@@ -91,6 +95,7 @@ async def _async_create_entities(hass, config):
         icon_template = device_config.get(CONF_ICON_TEMPLATE)
         entity_picture_template = device_config.get(CONF_ENTITY_PICTURE_TEMPLATE)
         availability_template = device_config.get(CONF_AVAILABILITY_TEMPLATE)
+        attribute_templates = device_config[CONF_ATTRIBUTE_TEMPLATES]
         unique_id = device_config.get(CONF_UNIQUE_ID)
 
         on_action = device_config[CONF_ON_ACTION]
@@ -128,6 +133,7 @@ async def _async_create_entities(hass, config):
                 white_value_action,
                 white_value_template,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -162,12 +168,14 @@ class LightTemplate(TemplateEntity, LightEntity):
         white_value_action,
         white_value_template,
         unique_id,
+        attribute_templates,
     ):
         """Initialize the light."""
         super().__init__(
             availability_template=availability_template,
             icon_template=icon_template,
             entity_picture_template=entity_picture_template,
+            attribute_templates=attribute_templates,
         )
         self.entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, device_id, hass=hass
