@@ -76,6 +76,7 @@ CONF_TEMPERATURE_ACTION = "set_temperature"
 CONF_TEMPERATURE_TEMPLATE = "temperature_template"
 CONF_WHITE_VALUE_ACTION = "set_white_value"
 CONF_WHITE_VALUE_TEMPLATE = "white_value_template"
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
 
 LIGHT_SCHEMA = vol.All(
     cv.deprecated(CONF_ENTITY_ID),
@@ -107,6 +108,9 @@ LIGHT_SCHEMA = vol.All(
             vol.Optional(CONF_TEMPERATURE_TEMPLATE): cv.template,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
             vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ).extend(TEMPLATE_ENTITY_COMMON_SCHEMA_LEGACY.schema),
 )
@@ -128,6 +132,7 @@ async def _async_create_entities(hass, config):
     for object_id, entity_config in config[CONF_LIGHTS].items():
         entity_config = rewrite_common_legacy_to_modern_conf(hass, entity_config)
         unique_id = entity_config.get(CONF_UNIQUE_ID)
+        attribute_templates = entity_config.get(CONF_ATTRIBUTE_TEMPLATES)
 
         lights.append(
             LightTemplate(
@@ -135,6 +140,7 @@ async def _async_create_entities(hass, config):
                 object_id,
                 entity_config,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -162,6 +168,7 @@ class LightTemplate(TemplateEntity, LightEntity):
         object_id,
         config,
         unique_id,
+        attribute_templates,
     ):
         """Initialize the light."""
         super().__init__(
