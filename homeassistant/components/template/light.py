@@ -52,6 +52,7 @@ CONF_COLOR_TEMPLATE = "color_template"
 CONF_COLOR_ACTION = "set_color"
 CONF_WHITE_VALUE_TEMPLATE = "white_value_template"
 CONF_WHITE_VALUE_ACTION = "set_white_value"
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
 
 LIGHT_SCHEMA = vol.Schema(
     {
@@ -72,6 +73,9 @@ LIGHT_SCHEMA = vol.Schema(
         vol.Optional(CONF_WHITE_VALUE_TEMPLATE): cv.template,
         vol.Optional(CONF_WHITE_VALUE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_UNIQUE_ID): cv.string,
+        vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+            {cv.string: cv.template}
+        ),
     }
 )
 
@@ -108,6 +112,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         white_value_action = device_config.get(CONF_WHITE_VALUE_ACTION)
         white_value_template = device_config.get(CONF_WHITE_VALUE_TEMPLATE)
 
+        attribute_templates = device_config[CONF_ATTRIBUTE_TEMPLATES]
+
         templates = {
             CONF_VALUE_TEMPLATE: state_template,
             CONF_ICON_TEMPLATE: icon_template,
@@ -119,9 +125,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             CONF_WHITE_VALUE_TEMPLATE: white_value_template,
         }
 
-        initialise_templates(hass, templates)
+        initialise_templates(hass, templates, attribute_templates)
         entity_ids = extract_entities(
-            device, "light", device_config.get(CONF_ENTITY_ID), templates
+            device, "light", device_config.get(CONF_ENTITY_ID), templates, attribute_templates
         )
 
         lights.append(
@@ -145,6 +151,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 white_value_action,
                 white_value_template,
                 unique_id,
+                attribute_templates,
             )
         )
 
@@ -175,6 +182,7 @@ class LightTemplate(LightEntity):
         white_value_action,
         white_value_template,
         unique_id,
+        attribute_templates,
     ):
         """Initialize the light."""
         self.hass = hass
@@ -204,6 +212,9 @@ class LightTemplate(LightEntity):
         if white_value_action is not None:
             self._white_value_script = Script(hass, white_value_action)
         self._white_value_template = white_value_template
+
+        self._attribute_templates = attribute_templates
+        self._attributes = {}
 
         self._state = False
         self._icon = None
@@ -284,6 +295,11 @@ class LightTemplate(LightEntity):
     def available(self) -> bool:
         """Return if the device is available."""
         return self._available
+
+    @property
+    def device_state_attributes(self):
+        """Return the state attributes."""
+        return self._attributes
 
     async def async_added_to_hass(self):
         """Register callbacks."""
@@ -388,6 +404,15 @@ class LightTemplate(LightEntity):
         self.update_color()
 
         self.update_white_value()
+
+        attrs = {}
+        for key, value in self._attribute_templates.items():
+            try:
+                attrs[key] = value.async_render()
+            except TemplateError as err:
+                _LOGGER.error("Error rendering attribute %s: %s", key, err)
+
+        self._attributes = attrs
 
         for property_name, template in (
             ("_icon", self._icon_template),
@@ -514,8 +539,9 @@ class LightTemplate(LightEntity):
                 self._temperature = temperature
             else:
                 _LOGGER.error(
-                    "Received invalid color temperature : %s. Expected: 0-%s",
+                    "Received invalid color temperature : %s. Expected: %s-%s",
                     temperature,
+                    self.min_mireds,
                     self.max_mireds,
                 )
                 self._temperature = None
