@@ -62,6 +62,6 @@ class RecorderStatisticsSensor(Entity):
     async def async_update(self):
         """Update the state of the sensor."""
         recorder_instance = self._hass.data[DATA_INSTANCE]
-        qsize = recorder_instance.backlog()
+        qsize = recorder_instance.backlog
         self._state = qsize
         _LOGGER.debug("New value: %s", self._state)
