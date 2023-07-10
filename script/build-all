@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Stop on errors
+set -e
+
+cd "$(dirname "$0")/.."
+
+. venv/bin/activate
+
+script/bootstrap
+python3 -m pip install -e . --config-settings editable_mode=compat --constraint homeassistant/package_constraints.txt
+python3 -m script.translations develop --all
+
+python3 -m build
