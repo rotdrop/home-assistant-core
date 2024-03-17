@@ -448,12 +448,20 @@ class _ScriptRun:
     async def async_run(self) -> ScriptRunResult | None:
         """Run script."""
         self._started = True
+        response = None
+
         # Push the script to the script execution stack
         if (script_stack := script_stack_cv.get()) is None:
             script_stack = []
             script_stack_cv.set(script_stack)
-        script_stack.append(self._script.unique_id)
-        response = None
+
+        if self._script.script_mode in (SCRIPT_MODE_RESTART, SCRIPT_MODE_QUEUED):
+            if self._script.unique_id in script_stack:
+                script_execution_set("disallowed_recursion_detected")
+                self._log("Disallowed recursion detected %s", self._script.unique_id, level=logging.WARNING)
+                self._finish()
+                return ScriptRunResult(self._conversation_response, response, self._variables)
+            script_stack.append(self._script.unique_id)
 
         try:
             self._log("Running %s", self._script.running_description)
@@ -484,8 +492,9 @@ class _ScriptRun:
             script_execution_set("error")
             raise
         finally:
-            # Pop the script from the script execution stack
-            script_stack.pop()
+            if self._script.script_mode in (SCRIPT_MODE_RESTART, SCRIPT_MODE_QUEUED):
+                # Remove the script from the script execution stack
+                script_stack.remove(self._script.unique_id)
             self._finish()
 
         return ScriptRunResult(self._conversation_response, response, self._variables)
@@ -1297,10 +1306,10 @@ class _QueuedScriptRun(_ScriptRun):
         await super().async_run()
 
     def _finish(self) -> None:
+        super()._finish()
         if self.lock_acquired:
             self._script._queue_lck.release()  # noqa: SLF001
             self.lock_acquired = False
-        super()._finish()
 
 
 @callback
@@ -1746,29 +1755,6 @@ class Script:
         else:
             # This is not the top level script, variables have been turned to a dict
             variables = cast(dict[str, Any], run_variables)
-
-        # Prevent non-allowed recursive calls which will cause deadlocks when we try to
-        # stop (restart) or wait for (queued) our own script run.
-        script_stack = script_stack_cv.get()
-        if (
-            self.script_mode in (SCRIPT_MODE_RESTART, SCRIPT_MODE_QUEUED)
-            and script_stack is not None
-            and self.unique_id in script_stack
-        ):
-            script_execution_set("disallowed_recursion_detected")
-            formatted_stack = [
-                f"- {name_id.partition('-')[0]}" for name_id in script_stack
-            ]
-            self._log(
-                "Disallowed recursion detected, "
-                f"{script_stack[-1].partition('-')[0]} tried to start "
-                f"{self.domain}.{self.name} which is already running "
-                "in the current execution path; "
-                "Traceback (most recent call last):\n"
-                f"{"\n".join(formatted_stack)}",
-                level=logging.WARNING,
-            )
-            return None
 
         if self.script_mode != SCRIPT_MODE_QUEUED:
             cls = _ScriptRun
