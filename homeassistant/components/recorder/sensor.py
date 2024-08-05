@@ -3,12 +3,18 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.sensor import (
+    PLATFORM_SCHEMA as SENSOR_PLATFORM_SCHEMA,
+    SensorEntity,
+)
 from homeassistant.const import CONF_NAME, CONF_UNIT_OF_MEASUREMENT
+from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 import homeassistant.util.dt as dt_util
-from .const import DATA_INSTANCE
+from homeassistant.helpers.recorder import DATA_INSTANCE
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,20 +22,25 @@ DEFAULT_NAME = "recorder_queue"
 
 ICON = "mdi:counter"
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string
     }
 )
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+):
     """Set up the recorder statistics sensor platform."""
     name = config.get(CONF_NAME)
 
     async_add_entities([RecorderStatisticsSensor(name, hass)], True)
 
 
-class RecorderStatisticsSensor(Entity):
+class RecorderStatisticsSensor(SensorEntity):
     """Representation of recorder statistics."""
 
     def __init__(self, name, hass):
