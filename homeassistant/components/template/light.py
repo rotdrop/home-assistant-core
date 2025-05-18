@@ -99,6 +99,7 @@ CONF_TEMPERATURE_TEMPLATE = "temperature_template"
 CONF_WHITE_VALUE_ACTION = "set_white_value"
 CONF_WHITE_VALUE = "white_value"
 CONF_WHITE_VALUE_TEMPLATE = "white_value_template"
+CONF_ATTRIBUTE_TEMPLATES = "attribute_templates"
 
 DEFAULT_MIN_MIREDS = 153
 DEFAULT_MAX_MIREDS = 500
@@ -179,6 +180,9 @@ LEGACY_LIGHT_SCHEMA = vol.All(
             vol.Optional(CONF_TEMPERATURE_TEMPLATE): cv.template,
             vol.Optional(CONF_UNIQUE_ID): cv.string,
             vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+            vol.Optional(CONF_ATTRIBUTE_TEMPLATES, default={}): vol.Schema(
+                {cv.string: cv.template}
+            ),
         }
     ).extend(TEMPLATE_ENTITY_COMMON_SCHEMA_LEGACY.schema),
 )
@@ -229,7 +233,9 @@ def _async_create_template_tracking_entities(
         if unique_id and unique_id_prefix:
             unique_id = f"{unique_id_prefix}-{unique_id}"
 
-        lights.append(LightTemplate(hass, entity_conf, unique_id))
+        attribute_templates = entity_conf.get(CONF_ATTRIBUTE_TEMPLATES)
+
+        lights.append(LightTemplate(hass, entity_conf, unique_id, attribute_templates))
 
     async_add_entities(lights)
 
@@ -944,9 +950,10 @@ class LightTemplate(TemplateEntity, AbstractTemplateLight):
         hass: HomeAssistant,
         config: dict[str, Any],
         unique_id: str | None,
+        attribute_templates: dict[str, Any],
     ) -> None:
         """Initialize the light."""
-        TemplateEntity.__init__(self, hass, config=config, unique_id=unique_id)
+        TemplateEntity.__init__(self, hass, config=config, unique_id=unique_id, attribute_templates=attribute_templates)
         AbstractTemplateLight.__init__(self, config)
         if (object_id := config.get(CONF_OBJECT_ID)) is not None:
             self.entity_id = async_generate_entity_id(
