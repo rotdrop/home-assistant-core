@@ -70,6 +70,9 @@ def suitable_temperature(device: FritzhomeDevice) -> bool:
     """Check suitablity for temperature sensor."""
     return bool(device.has_temperature_sensor)
 
+def suitable_temperature_offset(device: FritzhomeDevice) -> bool:
+    """Check suitablity for temperature sensor."""
+    return bool(device.has_temperature_sensor) and device.offset is not None
 
 def entity_category_temperature(device: FritzhomeDevice) -> EntityCategory | None:
     """Determine proper entity category for temperature sensor."""
@@ -119,6 +122,15 @@ SENSOR_TYPES: Final[tuple[FritzSensorEntityDescription, ...]] = (
         entity_category_fn=entity_category_temperature,
         suitable=suitable_temperature,
         native_value=lambda device: device.temperature,
+    ),
+    FritzSensorEntityDescription(
+        key="temperature_offset",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE_DELTA,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        suitable=suitable_temperature_offset,
+        native_value=lambda device: device.offset,
     ),
     FritzSensorEntityDescription(
         key="humidity",
