@@ -15,6 +15,7 @@ from homeassistant.const import (
     CONF_BROADCAST_ADDRESS,
     CONF_BROADCAST_PORT,
     CONF_HOST,
+    CONF_PROTOCOL,
     CONF_MAC,
     CONF_NAME,
 )
@@ -34,6 +35,7 @@ PLATFORM_SCHEMA = SWITCH_PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_BROADCAST_ADDRESS): cv.string,
         vol.Optional(CONF_BROADCAST_PORT): cv.port,
         vol.Optional(CONF_HOST): cv.string,
+        vol.Optional(CONF_PROTOCOL): cv.positive_int,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_OFF_ACTION): cv.SCRIPT_SCHEMA,
     }
@@ -50,6 +52,7 @@ async def async_setup_platform(
     broadcast_address: str | None = config.get(CONF_BROADCAST_ADDRESS)
     broadcast_port: int | None = config.get(CONF_BROADCAST_PORT)
     host: str | None = config.get(CONF_HOST)
+    protocol: int | None = config.get(CONF_PROTOCOL)
     mac_address: str = config[CONF_MAC]
     name: str = config[CONF_NAME]
     off_action: list[Any] | None = config.get(CONF_OFF_ACTION)
@@ -60,6 +63,7 @@ async def async_setup_platform(
                 hass,
                 name,
                 host,
+                protocol,
                 mac_address,
                 off_action,
                 broadcast_address,
@@ -78,6 +82,7 @@ class WolSwitch(SwitchEntity):
         hass: HomeAssistant,
         name: str,
         host: str | None,
+        protocol: int | None,
         mac_address: str,
         off_action: list[Any] | None,
         broadcast_address: str | None,
@@ -86,6 +91,7 @@ class WolSwitch(SwitchEntity):
         """Initialize the WOL switch."""
         self._attr_name = name
         self._host = host
+        self._protocol = protocol
         self._mac_address = mac_address
         self._broadcast_address = broadcast_address
         self._broadcast_port = broadcast_port
@@ -154,8 +160,10 @@ class WolSwitch(SwitchEntity):
             "1",
             "-W",
             str(DEFAULT_PING_TIMEOUT),
-            str(self._host),
         ]
+        if self._protocol is not None:
+            ping_cmd += ["-" + str(self._protocol)]
+        ping_cmd += [str(self._host)]
 
         status = sp.call(ping_cmd, stdout=sp.DEVNULL, stderr=sp.DEVNULL)
         self._state = not bool(status)
